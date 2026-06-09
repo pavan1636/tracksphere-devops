@@ -5,16 +5,35 @@
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-tracksphere.fit-success?style=for-the-badge&logo=vercel&logoColor=white)](https://tracksphere.fit)
 
 > [!NOTE]
-> **Portfolio Repository Scope:** The application source code (React frontend and Node.js backend) is maintained in a private repository to protect intellectual property. This public repository houses the complete production-grade DevOps and Infrastructure-as-Code modules (Terraform, Kubernetes, Helm, ArgoCD, and CI/CD pipelines) for the platform.
+> **Portfolio Repository Scope:** This is the **public DevOps & Infrastructure-as-Code** repository for TrackSphere. It contains the complete Terraform modules, Kubernetes manifests, ArgoCD configuration, and GitHub Actions CI/CD pipelines. The full application source code (React frontend and Node.js/Express backend) is maintained in the private [TrackSphere.fit](https://github.com/pavan1636/TrackSphere.fit) repository.
 
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white)](/.github/workflows/devops-pipeline.yml)
 [![IaC](https://img.shields.io/badge/IaC-Terraform-7B42BC?style=flat-square&logo=terraform&logoColor=white)](./terraform)
-[![Container](https://img.shields.io/badge/Container-Docker%20%2B%20Kubernetes-2496ED?style=flat-square&logo=docker&logoColor=white)](./docker-compose.yml)
+[![Container](https://img.shields.io/badge/Container-Docker%20%2B%20Kubernetes-2496ED?style=flat-square&logo=docker&logoColor=white)](#cicd-pipeline)
 [![Cloud](https://img.shields.io/badge/Cloud-AWS%20eu--west--1-FF9900?style=flat-square&logo=amazon-aws&logoColor=white)](./terraform)
 [![GitOps](https://img.shields.io/badge/GitOps-ArgoCD-EF7B4D?style=flat-square&logo=argo&logoColor=white)](./argocd)
 [![Security](https://img.shields.io/badge/Security-Trivy%20%2B%20SonarQube-1F72DE?style=flat-square&logo=aquasecurity&logoColor=white)](/.github/workflows/devops-pipeline.yml)
 [![Monitoring](https://img.shields.io/badge/Monitoring-Prometheus%20%2B%20Grafana-E6522C?style=flat-square&logo=prometheus&logoColor=white)](#monitoring--observability)
 [![Stack](https://img.shields.io/badge/App%20Stack-React%20%7C%20Node.js%20%7C%20PostgreSQL-16a34a?style=flat-square)](#application-stack)
+
+---
+
+## 📋 Table of Contents
+
+- [What Is This Project?](#what-is-this-project)
+- [Infrastructure Architecture](#infrastructure-architecture)
+- [Proof of Deployment (Model A & B)](#-proof-of-live-deployment--architecture-models)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [GitOps with ArgoCD](#gitops-with-argocd)
+- [Monitoring & Observability](#monitoring--observability)
+- [Repository Structure](#project-structure)
+- [Application Stack](#application-stack)
+- [Database Design](#database-design)
+- [Security Model](#security-model)
+- [What I Learned](#what-i-learned-that-actually-stuck)
+- [Roadmap](#roadmap)
+- [Running Terraform Locally](#running-infrastructure-locally-terraform)
+- [Contact](#contact)
 
 ---
 
@@ -92,6 +111,8 @@ terraform/
 
 > **Why Terraform and not ClickOps?**
 > Because infrastructure defined in code can be version-controlled, peer-reviewed in a PR, rolled back in one command, and recreated identically in a new environment. `terraform destroy && terraform apply` is more reliable than trying to document what you clicked in the AWS console six months ago.
+
+---
 
 ## 📸 Proof of Live Deployment & Architecture Models
 
@@ -219,40 +240,16 @@ The Express backend exposes a `/metrics` endpoint powered by `prom-client`. Prom
   └── Uptime and restart count
 ```
 
-Metrics endpoint: `http://localhost:5005/metrics`
-Health check endpoint: `http://localhost:5005/api/health`
-
----
-
-## Local Development & IaC Execution
-
-Because the application source code is maintained in a private repository, local containerized execution (`docker-compose`) requires access keys. However, the complete infrastructure stack defined in this repository can be executed and tested locally.
-
-Please refer to the [Running Infrastructure Locally](#running-infrastructure-locally-terraform) section below to provision and manage the AWS VPC, EKS, RDS, S3, and CloudFront resources.
-
-| Service | URL | Notes |
-|---|---|---|
-| Frontend (React) | http://localhost:5173 | Nginx serving Vite production build |
-| Backend API | http://localhost:5005/api/health | Express.js REST API |
-| Metrics endpoint | http://localhost:5005/metrics | Prometheus-format metrics |
-| PostgreSQL | localhost:5432 | DB: `tracksphere`, User: `postgres` |
-
-**For hot-reload development** (frontend changes reflect instantly):
-
-```bash
-# Terminal 1: start DB + backend via Docker
-docker-compose up db backend -d
-
-# Terminal 2: run frontend in dev mode
-cd frontend && npm install && npm run dev
-```
+In the AWS EKS deployment, Prometheus scrapes the `/metrics` endpoint from within the cluster on a 15-second interval. The health check endpoint (`/api/health`) is used by the ALB target group health checks to determine pod readiness. Neither endpoint is exposed publicly.
 
 ---
 
 ## Project Structure
 
+This repository contains only the DevOps and Infrastructure-as-Code components. The application source code lives in the private [TrackSphere.fit](https://github.com/pavan1636/TrackSphere.fit) repository.
+
 ```
-tracksphere/
+tracksphere-devops/
 │
 ├── .github/
 │   └── workflows/
@@ -272,40 +269,17 @@ tracksphere/
 │       ├── s3/                   ← Static assets bucket, versioning, OAC
 │       └── cloudfront/           ← CDN distribution, HTTPS, cache behaviours
 │
-├── k8s/                          ← Kubernetes manifests (ArgoCD watches this)
+├── k8s/                          ← Kubernetes manifests (ArgoCD watches this path)
 │   ├── tracksphere-backend/      ← Deployment, ClusterIP Service, Ingress
 │   └── tracksphere-frontend/     ← Deployment, ClusterIP Service
 │
 ├── argocd/                       ← ArgoCD Application CRD manifests
 │
-├── backend/                      ← Node.js Express API
-│   └── src/
-│       ├── app.js                ← Express server setup, route mounting, CORS
-│       ├── db.js                 ← pg connection pool, health check query
-│       ├── dbSchema.js           ← 18 table definitions, auto-migrates on boot
-│       ├── routes/               ← 12 route files (auth, food, fitness, sleep…)
-│       ├── middleware/           ← JWT auth middleware, global error handler
-│       └── utils/                ← MET calorie calculation, RDI formula
-│
-├── frontend/                     ← React 18 SPA (Vite)
-│   └── src/
-│       ├── App.jsx               ← Root: auth state, JWT handling, route control
-│       ├── modules/              ← Feature modules (one directory per page)
-│       │   ├── Auth/             ← Login & registration forms
-│       │   ├── Dashboard/        ← Daily summary widgets
-│       │   ├── FoodDiary/        ← Meal logging, macro tracking, saved presets
-│       │   ├── Fitness/          ← Exercise log with MET-based calorie burn
-│       │   ├── Sleep/            ← Sleep log + 4-week heatmap calendar
-│       │   ├── Analytics/        ← Recharts trend graphs (7 / 14 / 30 day)
-│       │   ├── Profile/          ← User bio, calorie goal calculator
-│       │   ├── Settings/         ← App prefs, data export (GDPR Art.15), account delete (Art.17)
-│       │   └── Payment/          ← Subscription tier UI (Stripe-ready)
-│       ├── services/api.js       ← Centralised fetch client, all API calls
-│       ├── utils/helpers.js      ← Date formatting, RDI calc, macro helpers
-│       └── index.css             ← Full design system: CSS variables, layout, animations
-│
-└── docker-compose.yml            ← Local dev: PostgreSQL + Backend + Frontend
+└── docs/
+    └── assets/                   ← Architecture screenshots and deployment proof
 ```
+
+---
 
 ---
 
@@ -423,14 +397,14 @@ Every DevOps tool in this project solved a real problem I hit while building it.
 
 ## Roadmap
 
-This project is actively maintained — it's something I use myself.
+This project is actively used and maintained — it's something I use myself for physiotherapy recovery tracking. Planned enhancements:
 
 - [ ] **Physio module** — structured recovery programmes, session notes, milestone tracking
-- [ ] **Real Stripe activation** — the subscription system is fully wired, just needs a live key
-- [ ] **Helm chart** — replace raw Kubernetes YAML with a parameterised Helm chart
-- [ ] **Horizontal Pod Autoscaler** — scale backend pods based on CPU/memory under load
+- [ ] **Real Stripe activation** — the subscription tier system is fully wired; just needs a live Stripe key to enable payments
+- [ ] **Helm chart** — replace raw Kubernetes YAML manifests with a parameterised Helm chart for multi-environment deployments
+- [ ] **Horizontal Pod Autoscaler (HPA)** — automatically scale backend pods based on CPU/memory pressure under load
 - [ ] **Wearable sync** — pull step count and sleep data from Fitbit or Apple Health API
-- [ ] **AlertManager** — fire Slack/email alerts when error rate exceeds threshold
+- [ ] **AlertManager** — fire Slack/email alerts when error rate or latency exceeds defined thresholds
 
 ---
 
