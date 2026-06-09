@@ -4,6 +4,9 @@
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-tracksphere.fit-success?style=for-the-badge&logo=vercel&logoColor=white)](https://tracksphere.fit)
 
+> [!NOTE]
+> **Portfolio Repository Scope:** The application source code (React frontend and Node.js backend) is maintained in a private repository to protect intellectual property. This public repository houses the complete production-grade DevOps and Infrastructure-as-Code modules (Terraform, Kubernetes, Helm, ArgoCD, and CI/CD pipelines) for the platform.
+
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white)](/.github/workflows/devops-pipeline.yml)
 [![IaC](https://img.shields.io/badge/IaC-Terraform-7B42BC?style=flat-square&logo=terraform&logoColor=white)](./terraform)
 [![Container](https://img.shields.io/badge/Container-Docker%20%2B%20Kubernetes-2496ED?style=flat-square&logo=docker&logoColor=white)](./docker-compose.yml)
@@ -221,21 +224,11 @@ Health check endpoint: `http://localhost:5005/api/health`
 
 ---
 
-## Local Development
+## Local Development & IaC Execution
 
-You need **Docker Desktop** and nothing else. One command starts the full stack.
+Because the application source code is maintained in a private repository, local containerized execution (`docker-compose`) requires access keys. However, the complete infrastructure stack defined in this repository can be executed and tested locally.
 
-```bash
-# Clone
-git clone https://github.com/pavan1636/tracksphere.git
-cd tracksphere
-
-# Start everything: PostgreSQL + Node.js API + React frontend
-docker-compose up -d --build
-
-# Verify all containers are healthy
-docker ps
-```
+Please refer to the [Running Infrastructure Locally](#running-infrastructure-locally-terraform) section below to provision and manage the AWS VPC, EKS, RDS, S3, and CloudFront resources.
 
 | Service | URL | Notes |
 |---|---|---|
@@ -475,7 +468,7 @@ Currently looking for roles in **DevOps, Cloud Engineering, or Full-Stack** in I
 *   **Email**: [pavannani1636@gmail.com](mailto:pavannani1636@gmail.com)
 *   **Phone**: +353 89 949 4794
 *   **LinkedIn**: [linkedin.com/in/pavan-adusumilli-575426182](https://www.linkedin.com/in/pavan-adusumilli-575426182/)
-*   **GitHub**: [github.com/pavan1636](https://github.com/pavan1636)
+*   **GitHub**: [github.com/pavan1636/tracksphere-devops](https://github.com/pavan1636/tracksphere-devops)
 
 ---
 
