@@ -1,0 +1,23 @@
+# Number of duplicate instances (Pods) to run
+replicaCount: 2
+
+# Docker Image configurations
+image:
+  # The URL of the AWS ECR registry we will push our frontend images to in CI/CD
+  repository: "123456789012.dkr.ecr.eu-west-1.amazonaws.com/tracksphere-frontend"
+  tag: "latest"
+  pullPolicy: "IfNotPresent"
+
+# Frontend Service configuration (Nginx runs on port 80)
+service:
+  type: "ClusterIP"
+  port: 80
+
+# Resource limits (low memory needed because Nginx only serves static files)
+resources:
+  limits:
+    cpu: "100m"      # Max 0.1 CPU cores
+    memory: "128Mi"  # Max 128 Megabytes of RAM
+  requests:
+    cpu: "50m"       # Starts with 0.05 CPU cores reserved
+    memory: "64Mi"   # Starts with 64 Megabytes of RAM reserved

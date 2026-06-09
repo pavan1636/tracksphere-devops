@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tracksphere-backend
+  labels:
+    app: tracksphere-backend
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: tracksphere-backend
+  template:
+    metadata:
+      labels:
+        app: tracksphere-backend
+    spec:
+      # Hardened Security Context (Runs as non-root user)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      
+      containers:
+        - name: backend
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          
+          # Injecting environment variables from values.yaml
+          env:
+            - name: DB_HOST
+              value: "{{ .Values.env.dbHost }}"
+            - name: DB_USER
+              value: "{{ .Values.env.dbUser }}"
+            - name: DB_NAME
+              value: "{{ .Values.env.dbName }}"
+            - name: DB_PORT
+              value: "{{ .Values.env.dbPort }}"
+            
+            # Database Password is read securely from a Kubernetes Secret
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tracksphere-db-secret
+                  key: password
+
+          # Request and Limit bounds for the CPU/Memory
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

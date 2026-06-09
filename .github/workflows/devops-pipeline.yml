@@ -1,0 +1,91 @@
+name: TrackSphere.fit CI/CD Security Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: eu-west-1
+  BACKEND_REPO: tracksphere-backend
+  FRONTEND_REPO: tracksphere-frontend
+
+jobs:
+  # Job 1: Static Code Quality Analysis
+  sonar-scan:
+    name: SonarQube Quality Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Run SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+  # Job 2: Build, Container Scan, and Push to AWS ECR
+  build-and-push:
+    name: Build, Scan & Publish Images
+    needs: sonar-scan # Ensures code quality passes before we build containers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Build Backend Image Locally
+      - name: Build Backend Image
+        run: docker build -t tracksphere-backend:latest ./backend
+
+      # Scan Backend Image with Trivy (Security Gate)
+      - name: Run Trivy Vulnerability Scan on Backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'tracksphere-backend:latest'
+          format: 'table'
+          exit-code: '1' # Fails the pipeline if critical vulnerabilities are found
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
+
+      # Build Frontend Image Locally
+      - name: Build Frontend Image
+        run: docker build -t tracksphere-frontend:latest ./frontend
+
+      # Scan Frontend Image with Trivy (Security Gate)
+      - name: Run Trivy Vulnerability Scan on Frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'tracksphere-frontend:latest'
+          format: 'table'
+          exit-code: '1' # Fails the pipeline if critical vulnerabilities are found
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
+
+      # Log into AWS (Using credentials stored in GitHub Secrets)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # Tag and Push Images to AWS ECR
+      - name: Push Images to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          # Tag and push backend
+          docker tag tracksphere-backend:latest $ECR_REGISTRY/${{ env.BACKEND_REPO }}:${{ github.sha }}
+          docker push $ECR_REGISTRY/${{ env.BACKEND_REPO }}:${{ github.sha }}
+          
+          # Tag and push frontend
+          docker tag tracksphere-frontend:latest $ECR_REGISTRY/${{ env.FRONTEND_REPO }}:${{ github.sha }}
+          docker push $ECR_REGISTRY/${{ env.FRONTEND_REPO }}:${{ github.sha }}

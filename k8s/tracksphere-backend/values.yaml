@@ -1,0 +1,30 @@
+# Number of duplicate instances (Pods) to run
+replicaCount: 2
+
+# Docker Image configurations
+image:
+  # The URL of the AWS ECR registry we will push our images to in CI/CD
+  repository: "677502935918.dkr.ecr.eu-west-1.amazonaws.com/tracksphere-backend"
+  tag: "latest"
+  pullPolicy: "Always"
+
+# Kubernetes Network Service Port mapping
+service:
+  type: "LoadBalancer"
+  port: 5000
+
+# Environment variables for the backend database connection
+env:
+  dbHost: "tracksphere-db.czyoq66kcolr.eu-west-1.rds.amazonaws.com"
+  dbUser: "postgres"
+  dbName: "tracksphere"
+  dbPort: "5432"
+
+# Resource Limits (SRE Best Practice)
+resources:
+  limits:
+    cpu: "200m"      # Max 0.2 CPU cores
+    memory: "256Mi"  # Max 256 Megabytes of RAM
+  requests:
+    cpu: "100m"      # Starts with 0.1 CPU cores reserved
+    memory: "128Mi"  # Starts with 128 Megabytes of RAM reserved

@@ -1,0 +1,45 @@
+# 1. ArgoCD Application configuration for Backend
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tracksphere-backend
+  namespace: argocd # Deploys the configuration in the ArgoCD system namespace
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/pavan1636/tracksphere.git' # Your GitHub Repository
+    targetRevision: HEAD
+    path: k8s/tracksphere-backend                       # Path to the backend chart
+  destination:
+    server: 'https://kubernetes.default.svc'            # Internal EKS Cluster address
+    namespace: default                                  # Target namespace for application pods
+  syncPolicy:
+    automated:
+      prune: true     # Automatically deletes resources in EKS if they are deleted in Git
+      selfHeal: true  # Automatically overwrites manual cluster edits to match Git
+    syncOptions:
+      - CreateNamespace=true
+
+---
+
+# 2. ArgoCD Application configuration for Frontend
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tracksphere-frontend
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/pavan1636/tracksphere.git'
+    targetRevision: HEAD
+    path: k8s/tracksphere-frontend                      # Path to the frontend chart
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
