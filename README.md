@@ -41,7 +41,7 @@
 
 TrackSphere is a **personal health and fitness tracking platform** I built entirely from scratch — React frontend, Node.js/Express API, PostgreSQL database, and the full cloud infrastructure to run it in production on AWS.
 
-The app itself came from a genuine need. In early 2025 I sustained a **coccyx (tailbone) injury** and started physiotherapy. My physio gave me exercises, dietary targets, and sleep goals — but there was no single tool that tracked all of it together. MyFitnessPal was close but it couldn't tie my low-intensity physio sessions to calorie burn, and I couldn't see sleep recovery alongside nutrition in one view. I was using a spreadsheet.
+The app itself came from a genuine need. In early 2025 I sustained a **lower back injury** and started physiotherapy. My physio gave me exercises, dietary targets, and sleep goals — but there was no single tool that tracked all of it together. MyFitnessPal was close but it couldn't tie my low-intensity physio sessions to calorie burn, and I couldn't see sleep recovery alongside nutrition in one view. I was using a spreadsheet.
 
 So I built what I needed. And while I was building it, I made a decision: this project wouldn't stop at a working app. It would be deployed the way a real production system is deployed — containerised, orchestrated, infrastructure-as-code, automated security scanning, GitOps delivery, and live observability dashboards.
 
@@ -371,9 +371,9 @@ Schema auto-migrates on first boot — no manual `psql` needed. The `dbSchema.js
 
 ## Why I Built This — The Real Reason
 
-I didn't build TrackSphere to have something to put on a CV. I built it because I was recovering from a coccyx injury and going through physiotherapy, and I genuinely needed a tool that didn't exist in the way I needed it.
+I didn't build TrackSphere to have something to put on a CV. I built it because I was recovering from a lower back injury and going through physiotherapy, and I genuinely needed a tool that didn't exist in the way I needed it.
 
-My physio told me three things matter most for coccyx recovery: sleep quality (inflammation drops during deep sleep), controlled exercise (low-intensity, MET-tracked), and calorie management (I was eating the same as before the injury but moving much less). None of the existing apps let me see all three together in one dashboard.
+My physio told me three things matter most for lower back recovery: sleep quality (inflammation drops during deep sleep), controlled exercise (low-intensity, MET-tracked), and calorie management (I was eating the same as before the injury but moving much less). None of the existing apps let me see all three together in one dashboard.
 
 So I built one. And because I was spending time sitting at a desk building it anyway, I made it production-grade: Docker, Kubernetes, Terraform, ArgoCD, Prometheus — the full stack. It became a forcing function to learn infrastructure properly, not just read about it.
 
