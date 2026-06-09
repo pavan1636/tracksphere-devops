@@ -55,7 +55,7 @@ The production deployment runs entirely on AWS in the `eu-west-1` (Ireland) regi
 
 ```
  ┌──────────────────────────────────────────────────────────────────────┐
- │                        PRODUCTION (AWS eu-west-1)                   │
+ │      AWS INFRASTRUCTURE (eu-west-1) - PROVISIONED VIA TERRAFORM      │
  │                                                                      │
  │   User ──HTTPS──► CloudFront CDN ──► S3 Bucket                     │
  │                        (React SPA served at edge)                   │
