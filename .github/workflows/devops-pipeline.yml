@@ -1,172 +1,109 @@
-name: TrackSphere.fit CI/CD Security Pipeline
+name: TrackSphere.fit Infrastructure Validation Pipeline
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
+  workflow_dispatch:
 
-env:
-  BACKEND_IMAGE: tracksphere-backend
-  FRONTEND_IMAGE: tracksphere-frontend
-  REGISTRY: ghcr.io
-  IMAGE_OWNER: ${{ github.repository_owner }}
+# NOTE: Docker builds & security scans run in the application repo:
+# https://github.com/pavan1636/TrackSphere.fit/actions
 
 jobs:
-  # ─────────────────────────────────────────────
-  # Job 1: Static Code Quality (SonarCloud)
-  # ─────────────────────────────────────────────
-  sonar-scan:
-    name: SonarQube Quality Scan
+  # ─────────────────────────────────────────────────────
+  # Job 1: Terraform Validation
+  # ─────────────────────────────────────────────────────
+  validate-terraform:
+    name: Terraform Validate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          fetch-depth: 0  # Required for SonarQube blame data
+          terraform_version: "1.7.0"
 
-      - name: Run SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@master
-        continue-on-error: true  # Non-blocking: pipeline proceeds even without SONAR_TOKEN
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-
-      - name: SonarQube Gate Status
+      - name: Terraform Format Check
+        working-directory: ./terraform
         run: |
-          if [ -z "${{ secrets.SONAR_TOKEN }}" ]; then
-            echo "⚠️  SONAR_TOKEN not configured — scan skipped. Add token in repo Settings > Secrets to enable."
-          else
-            echo "✅ SonarQube scan completed."
-          fi
+          terraform fmt -check -recursive || echo "⚠️  Formatting issues found (non-blocking)"
 
-  # ─────────────────────────────────────────────
-  # Job 2: Build Docker Images
-  # ─────────────────────────────────────────────
-  build-images:
-    name: Build Docker Images
+      - name: Terraform Init (no backend)
+        working-directory: ./terraform
+        run: |
+          terraform init -backend=false
+          echo "✅ Terraform init passed."
+
+      - name: Terraform Validate
+        working-directory: ./terraform
+        run: |
+          terraform validate
+          echo "✅ Terraform configuration is valid."
+
+  # ─────────────────────────────────────────────────────
+  # Job 2: Helm Chart Linting
+  # ─────────────────────────────────────────────────────
+  validate-helm:
+    name: Helm Chart Lint
     runs-on: ubuntu-latest
-    needs: sonar-scan
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.14.0'
 
-      - name: Build Backend Image
+      - name: Helm Lint — Backend Chart
         run: |
-          docker build -t ${{ env.BACKEND_IMAGE }}:${{ github.sha }} ./backend
-          echo "✅ Backend image built: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
+          helm lint ./k8s/tracksphere-backend
+          echo "✅ Backend Helm chart is valid."
 
-      - name: Build Frontend Image
+      - name: Helm Lint — Frontend Chart
         run: |
-          docker build -t ${{ env.FRONTEND_IMAGE }}:${{ github.sha }} ./frontend
-          echo "✅ Frontend image built: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}"
+          helm lint ./k8s/tracksphere-frontend
+          echo "✅ Frontend Helm chart is valid."
 
-  # ─────────────────────────────────────────────
-  # Job 3: Trivy Container Security Scan
-  # ─────────────────────────────────────────────
-  trivy-scan:
-    name: Trivy Security Scan
+  # ─────────────────────────────────────────────────────
+  # Job 3: ArgoCD & K8s YAML Validation
+  # ─────────────────────────────────────────────────────
+  validate-manifests:
+    name: Validate YAML Manifests
     runs-on: ubuntu-latest
-    needs: build-images
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build Backend Image for Scanning
-        run: docker build -t ${{ env.BACKEND_IMAGE }}:scan ./backend
-
-      - name: Trivy Scan — Backend (CRITICAL CVEs)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: '${{ env.BACKEND_IMAGE }}:scan'
-          format: 'table'
-          exit-code: '0'          # Report only — does not fail pipeline
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Build Frontend Image for Scanning
-        run: docker build -t ${{ env.FRONTEND_IMAGE }}:scan ./frontend
-
-      - name: Trivy Scan — Frontend (CRITICAL CVEs)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: '${{ env.FRONTEND_IMAGE }}:scan'
-          format: 'table'
-          exit-code: '0'          # Report only — does not fail pipeline
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Security Scan Summary
-        run: echo "✅ Trivy container security scans completed for backend and frontend."
-
-  # ─────────────────────────────────────────────
-  # Job 4: Publish to GitHub Container Registry
-  # ─────────────────────────────────────────────
-  publish-images:
-    name: Publish Images to Registry
-    runs-on: ubuntu-latest
-    needs: trivy-scan
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}  # Built-in — no secrets needed
-
-      - name: Extract Git Metadata
-        id: meta-backend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.BACKEND_IMAGE }}
-          tags: |
-            type=sha,prefix=sha-
-            type=raw,value=latest
-
-      - name: Build & Push Backend Image → GHCR
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          push: true
-          tags: ${{ steps.meta-backend.outputs.tags }}
-          labels: ${{ steps.meta-backend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Extract Git Metadata (Frontend)
-        id: meta-frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.FRONTEND_IMAGE }}
-          tags: |
-            type=sha,prefix=sha-
-            type=raw,value=latest
-
-      - name: Build & Push Frontend Image → GHCR
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          push: true
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Publish Summary
+      - name: Validate ArgoCD & K8s YAML Syntax
         run: |
-          echo "✅ Images published to GitHub Container Registry"
-          echo "Backend:  ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.BACKEND_IMAGE }}"
-          echo "Frontend: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.FRONTEND_IMAGE }}"
-          echo "Git SHA:  ${{ github.sha }}"
+          python3 -c "
+          import yaml, sys, glob, os
+
+          patterns = [
+              'argocd/**/*.yaml', 'argocd/**/*.yml',
+              'k8s/**/*.yaml',    'k8s/**/*.yml',
+          ]
+          files = []
+          for p in patterns:
+              files.extend(glob.glob(p, recursive=True))
+
+          errors = []
+          for f in sorted(set(files)):
+              try:
+                  with open(f) as fh:
+                      yaml.safe_load(fh)
+                  print(f'✅ {f}')
+              except Exception as e:
+                  errors.append(f'❌ {f}: {e}')
+
+          if errors:
+              print()
+              [print(e) for e in errors]
+              sys.exit(1)
+          print(f'')
+          print(f'✅ All {len(set(files))} YAML manifests passed validation.')
+          "
