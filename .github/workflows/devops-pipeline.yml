@@ -78,24 +78,27 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Validate ArgoCD & K8s YAML Syntax
+      - name: Validate ArgoCD Manifests (pure YAML — no Helm templates)
         run: |
           python3 -c "
-          import yaml, sys, glob, os
+          import yaml, sys, glob
 
-          patterns = [
-              'argocd/**/*.yaml', 'argocd/**/*.yml',
-              'k8s/**/*.yaml',    'k8s/**/*.yml',
-          ]
+          # Only validate ArgoCD directory — k8s/ contains Helm templates
+          # which use {{ .Values.xxx }} syntax and are NOT pure YAML
+          patterns = ['argocd/**/*.yaml', 'argocd/**/*.yml']
           files = []
           for p in patterns:
               files.extend(glob.glob(p, recursive=True))
+
+          if not files:
+              print('ℹ️  No ArgoCD YAML files found.')
+              sys.exit(0)
 
           errors = []
           for f in sorted(set(files)):
               try:
                   with open(f) as fh:
-                      yaml.safe_load(fh)
+                      list(yaml.safe_load_all(fh))  # handles multi-doc YAML with ---
                   print(f'✅ {f}')
               except Exception as e:
                   errors.append(f'❌ {f}: {e}')
@@ -105,5 +108,15 @@ jobs:
               [print(e) for e in errors]
               sys.exit(1)
           print(f'')
-          print(f'✅ All {len(set(files))} YAML manifests passed validation.')
+          print(f'✅ All {len(set(files))} ArgoCD manifests passed YAML validation.')
           "
+
+      - name: Helm Template Render — Backend (validates Helm syntax)
+        run: |
+          helm template tracksphere-backend ./k8s/tracksphere-backend > /dev/null
+          echo "✅ Backend Helm chart renders cleanly."
+
+      - name: Helm Template Render — Frontend (validates Helm syntax)
+        run: |
+          helm template tracksphere-frontend ./k8s/tracksphere-frontend > /dev/null
+          echo "✅ Frontend Helm chart renders cleanly."
