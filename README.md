@@ -447,3 +447,5 @@ Currently looking for roles in **DevOps, Cloud Engineering, or Full-Stack** in I
 ---
 
 *This entire project — every line of application code, every Terraform module, every GitHub Actions step, every Kubernetes manifest — was written by one person. If you want to know how any part of it works, I can walk you through it.*
+
+<!-- Infrastructure pipeline: Terraform validate, Helm lint, ArgoCD YAML validation -->
